@@ -67,7 +67,10 @@ class OSMClient:
                          from_lon: float, 
                          to_lat: float, 
                          to_lon: float,
-                         mode: str = "car") -> Dict:
+                         mode: str = "car",
+                         steps: bool = False,
+                         overview: str = "overview",
+                         annotations: bool = True) -> Dict:
         """Get routing information between two points"""
         if not self.session:
             raise RuntimeError("OSM client not connected")
@@ -75,10 +78,10 @@ class OSMClient:
         # Use OSRM for routing
         osrm_url = f"http://router.project-osrm.org/route/v1/{mode}/{from_lon},{from_lat};{to_lon},{to_lat}"
         params = {
-            "overview": "full",
+            "overview": overview,
             "geometries": "geojson",
-            "steps": "true",
-            "annotations": "true"
+            "steps": str(steps).lower(),
+            "annotations": str(annotations).lower()
         }
         
         async with self.session.get(osrm_url, params=params) as response:
@@ -349,32 +352,42 @@ async def get_route_directions(
     to_latitude: float,
     to_longitude: float,
     ctx: Context,
-    mode: str = "car"
+    mode: str = "car",
+    steps: bool = False,
+    overview: str = "simplified",
+    annotations: bool = False
 ) -> Dict[str, Any]:
     """
     Calculate detailed route directions between two geographic points.
     
-    This tool provides comprehensive turn-by-turn navigation directions between any two locations
-    on Earth. It calculates the optimal route based on the specified transportation mode and
-    returns detailed information about distance, duration, maneuvers, and the route geometry.
-    Perfect for trip planning, navigation assistance, and commute analysis.
+    This tool provides comprehensive routing information between two locations using OpenStreetMap/OSRM.
+    The output can be minimized using the steps, overview, and annotations parameters to reduce the response size.
     
     Args:
         from_latitude: Starting point latitude (decimal degrees)
         from_longitude: Starting point longitude (decimal degrees)
         to_latitude: Destination latitude (decimal degrees)
         to_longitude: Destination longitude (decimal degrees)
-        mode: Transportation mode - options include:
-              - "car" (default): Standard automobile routing
-              - "bike": Bicycle-friendly routes
-              - "foot": Pedestrian walking paths
-        
+        ctx: Context (provided internally by MCP)
+        mode: Transportation mode ("car", "bike", "foot")
+        steps: Turn-by-turn instructions (True/False, Default: False)
+        overview: Geometry output ("full", "simplified", "false"; Default: "simplified")
+        annotations: Additional segment info (True/False, Default: False)
+    
     Returns:
-        Comprehensive routing information including:
-        - Summary with total distance (meters) and duration (seconds)
-        - Turn-by-turn directions with individual segments
-        - Route geometry for mapping visualization
-        - Waypoint information
+        Dictionary with routing information (summary, directions, geometry, waypoints)
+
+    Example:
+        {
+          "from_latitude": 51.3334193,
+          "from_longitude": 9.4540423,
+          "to_latitude": 51.3295516,
+          "to_longitude": 9.4576721,
+          "mode": "car",
+          "steps": false,
+          "overview": "simplified",
+          "annotations": false
+        }
     """
     osm_client = ctx.request_context.lifespan_context.osm_client
     
@@ -390,7 +403,10 @@ async def get_route_directions(
     route_data = await osm_client.get_route(
         from_latitude, from_longitude,
         to_latitude, to_longitude,
-        mode
+        mode,
+        steps=steps,
+        overview=overview,
+        annotations=annotations
     )
     
     # Process and simplify the response
@@ -398,11 +414,11 @@ async def get_route_directions(
         route = route_data["routes"][0]
         
         # Extract turn-by-turn directions
-        steps = []
+        steps_list = []
         if "legs" in route:
             for leg in route["legs"]:
                 for step in leg.get("steps", []):
-                    steps.append({
+                    steps_list.append({
                         "instruction": step.get("maneuver", {}).get("instruction", ""),
                         "distance": step.get("distance"),
                         "duration": step.get("duration"),
@@ -415,7 +431,7 @@ async def get_route_directions(
                 "duration": route.get("duration"),  # seconds
                 "mode": mode
             },
-            "directions": steps,
+            "directions": steps_list,
             "geometry": route.get("geometry"),
             "waypoints": route_data.get("waypoints", [])
         }
