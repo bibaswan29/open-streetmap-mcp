@@ -96,7 +96,7 @@ class LocationAssistant:
         
         return {"error": "No coordinates found for location"}
     
-    async def get_directions(self, from_place, to_place, mode="car"):
+    async def get_directions(self, from_place, to_place, mode="car", steps=False, overview="false", annotations=False):
         """Get directions between two places"""
         # Geocode both locations
         from_location = await self.get_location_info(from_place)
@@ -114,7 +114,10 @@ class LocationAssistant:
                     "from_longitude": from_location["coordinates"]["longitude"],
                     "to_latitude": to_location["coordinates"]["latitude"],
                     "to_longitude": to_location["coordinates"]["longitude"],
-                    "mode": mode
+                    "mode": mode,
+                    "steps": steps,
+                    "overview": overview,
+                    "annotations": annotations
                 }
             )
             
