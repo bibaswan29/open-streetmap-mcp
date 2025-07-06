@@ -1,0 +1,1 @@
+web: osm-mcp-server 
