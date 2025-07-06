@@ -17,8 +17,8 @@ RUN apk update && \
         python3 \
         py3-pip
 
-# Install uv using pip
-RUN pip3 install uv
+# Install uv using pip, breaking system packages as this is a controlled environment
+RUN pip3 install uv --break-system-packages
 
 # Create a folder for temp files, and set permissions for node user
 RUN mkdir /temp_files && chown node:node /temp_files && chmod 770 /temp_files
